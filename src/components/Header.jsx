@@ -44,11 +44,6 @@ const Header = ({isBack, headerTxt, showLogout}) => {
             style={styles.iconContainer}
             onPress={() => navigation.navigate('Search')}>
             <Ionicons name="magnify" size={24} color="black" />
-            {totalQuantity > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{totalQuantity}</Text>
-              </View>
-            )}
           </TouchableOpacity>
 
           {/* Cart Icon with Badge */}

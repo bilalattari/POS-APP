@@ -38,6 +38,10 @@ const CompanyDetail = () => {
   }, []);
 
   useEffect(() => {
+    console.log("all products =>", products);
+  }, [products]);
+
+  useEffect(() => {
     if (userId) {
       fetchBrands();
     }
@@ -230,13 +234,25 @@ const CompanyDetail = () => {
                           const cartItem = cartItems.find(
                             (p) => p._id === item._id
                           );
+                          const quantityInCart = cartItem
+                            ? cartItem.quantity
+                            : 0;
+                          const isOutOfStock = item.remainingStock === 0;
+                          const isMaxReached =
+                            quantityInCart >= item.remainingStock;
 
                           return (
-                            <View style={styles.productCard}>
+                            <View
+                              style={[
+                                styles.productCard,
+                                isMaxReached && styles.disabledCard,
+                              ]}
+                            >
                               {/* Like/Unlike Icon */}
                               <TouchableOpacity
                                 onPress={() => toggleWishlist(item._id)}
                                 style={styles.wishlistIcon}
+                                disabled={isOutOfStock}
                               >
                                 <Ionicons
                                   name={
@@ -250,7 +266,7 @@ const CompanyDetail = () => {
                               </TouchableOpacity>
 
                               <Image
-                                source={{ uri: item.image }}
+                                source={{ uri: item.image || ""}}
                                 style={styles.productImage}
                               />
                               <Txt style={styles.productName}>{item.name}</Txt>
@@ -261,27 +277,42 @@ const CompanyDetail = () => {
                                 </Txt>
                               </Txt>
 
-                              {/* Add to Cart Button */}
+                              {/* Show "Out of Stock" Label */}
+                              {isMaxReached && (
+                                <Txt style={styles.outOfStockLabel}>
+                                  Out of Stock
+                                </Txt>
+                              )}
+
+                              {/* Quantity Controls */}
                               <View style={styles.quantityContainer}>
                                 <TouchableOpacity
                                   onPress={() => removeFromCart(item._id)}
+                                  disabled={
+                                    quantityInCart === 0 || isOutOfStock
+                                  }
                                 >
                                   <Ionicons
                                     name="minus-circle-outline"
                                     size={24}
-                                    color="red"
+                                    color="black"
                                   />
                                 </TouchableOpacity>
-                                <Txt weight={TxtWeight.Bold}>
-                                  {cartItem?.quantity || 0}
-                                </Txt>
+
+                                <Txt>{quantityInCart}</Txt>
+
                                 <TouchableOpacity
                                   onPress={() => addToCart(item)}
+                                  disabled={isMaxReached || isOutOfStock}
                                 >
                                   <Ionicons
                                     name="plus-circle-outline"
                                     size={24}
-                                    color="green"
+                                    color={
+                                      isMaxReached || isOutOfStock
+                                        ? "gray"
+                                        : "black"
+                                    }
                                   />
                                 </TouchableOpacity>
                               </View>
@@ -367,5 +398,13 @@ const styles = StyleSheet.create({
   quantityContainer: {
     flexDirection: "row",
     gap: 20,
+  },
+  disabledCard: {
+    opacity: 0.5,
+  },
+  outOfStockLabel: {
+    color: "red",
+    fontWeight: "bold",
+    marginVertical: 5,
   },
 });
