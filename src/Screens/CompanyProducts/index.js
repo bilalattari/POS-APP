@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -7,29 +7,29 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  findNodeHandle
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import {useRoute} from '@react-navigation/native';
-import Txt from '../../components/Txt';
-import {COLORS, TxtWeight} from '../../Constants';
-import Header from '../../components/Header';
-import Ionicons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useCart} from '../../context/CartContext';
+  findNodeHandle,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useRoute } from "@react-navigation/native";
+import Txt from "../../components/Txt";
+import { COLORS, TxtWeight } from "../../Constants";
+import Header from "../../components/Header";
+import Ionicons from "react-native-vector-icons/MaterialCommunityIcons";
+import { useCart } from "../../context/CartContext";
 
 const CompanyDetail = () => {
   const route = useRoute();
-  const {companyId} = route.params;
+  const { companyId } = route.params;
   const scrollViewRef = useRef(null);
   const brandRefs = useRef({});
 
-  const {addToCart, removeFromCart, cartItems} = useCart();
+  const { addToCart, removeFromCart, cartItems } = useCart();
   const [brands, setBrands] = useState([]);
   const [products, setProducts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [sections, setSections] = useState([]);
-  const [selectedBrand, setSelectedBrand] = useState(null);
+  const [selectedBrand, setSelectedBrand] = useState("all");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
 
@@ -43,12 +43,17 @@ const CompanyDetail = () => {
     }
   }, [userId]);
 
-  const scrollToBrand = brandId => {
+  const scrollToBrand = (brandId) => {
     setSelectedBrand(brandId);
+    if (brandId === "all") {
+      fetchCompanyData();
+    } else {
+      fetchProducts(brandId);
+    }
 
     const node = findNodeHandle(brandRefs.current[brandId]);
     if (node && scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({y: node - 50, animated: true});
+      scrollViewRef.current.scrollTo({ y: node - 50, animated: true });
     }
   };
 
@@ -60,13 +65,13 @@ const CompanyDetail = () => {
 
   const getUserId = async () => {
     try {
-      const userData = await AsyncStorage.getItem('userData');
+      const userData = await AsyncStorage.getItem("userData");
       if (userData) {
         const parsedUser = JSON.parse(userData);
         setUserId(parsedUser._id);
       }
     } catch (error) {
-      console.error('Error fetching userId:', error);
+      console.error("Error fetching userId:", error);
     }
   };
 
@@ -74,30 +79,30 @@ const CompanyDetail = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/company/companyProducts/${companyId}`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/company/companyProducts/${companyId}`
       );
 
       if (!response.data.error) {
         const brandsData = response.data.data.brands;
-        const sectionsData = brandsData.map(brand => ({
+        const sectionsData = brandsData.map((brand) => ({
           title: brand.name,
           brandId: brand._id,
           data: brand.products || [],
         }));
 
-        setBrands(brandsData);
+        setBrands([{ name: "All", _id: "all" }, ...brandsData]);
         setSections(sectionsData);
 
         // Extract wishlist products
         setWishlist(
           brandsData
-            .flatMap(brand => brand.products)
-            .map(product => (product.isLiked ? product._id : null))
-            .filter(Boolean),
+            .flatMap((brand) => brand.products)
+            .map((product) => (product.isLiked ? product._id : null))
+            .filter(Boolean)
         );
       }
     } catch (error) {
-      console.error('Error fetching company data:', error);
+      console.error("Error fetching company data:", error);
     }
     setLoading(false);
   };
@@ -105,39 +110,40 @@ const CompanyDetail = () => {
   const fetchBrands = async () => {
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/brand?limit=10&page=1&company=${companyId}`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/brand?limit=10&page=1&company=${companyId}`
       );
       if (!response.data.error && response.data.data.length > 0) {
-        setBrands(response.data.data);
-        setSelectedBrand(response.data.data[0]._id);
+        let fetchBrands = response.data.data;
+        setBrands([{ name: "All", _id: "all" }, ...response.data.data]);
+        setSelectedBrand("all");
         fetchCompanyData();
       }
     } catch (error) {
-      console.error('Error fetching brands:', error);
+      console.error("Error fetching brands:", error);
     }
   };
 
-  const fetchProducts = async brandId => {
+  const fetchProducts = async (brandId) => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product?limit=10&page=1&brand=${brandId}`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product?limit=10&page=1&brand=${brandId}`
       );
       if (!response.data.error) {
         setProducts(response.data.data.docs);
         setWishlist(
           response.data.data.docs
-            .map(product => (product.isLiked ? product._id : null))
-            .filter(Boolean),
+            .map((product) => (product.isLiked ? product._id : null))
+            .filter(Boolean)
         );
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error("Error fetching products:", error);
     }
     setLoading(false);
   };
 
-  const toggleWishlist = async productId => {
+  const toggleWishlist = async (productId) => {
     if (!userId) return;
 
     try {
@@ -146,19 +152,19 @@ const CompanyDetail = () => {
         {
           userId: userId,
           productId: productId,
-        },
+        }
       );
 
       if (!response.data.error) {
         setWishlist(
-          prev =>
+          (prev) =>
             prev.includes(productId)
-              ? prev.filter(id => id !== productId) // Remove from wishlist
-              : [...prev, productId], // Add to wishlist
+              ? prev.filter((id) => id !== productId) // Remove from wishlist
+              : [...prev, productId] // Add to wishlist
         );
       }
     } catch (error) {
-      console.error('Error toggling wishlist:', error);
+      console.error("Error toggling wishlist:", error);
     }
   };
 
@@ -167,22 +173,23 @@ const CompanyDetail = () => {
       <Header isBack={true} />
       <ScrollView>
         {/* 🔹 Brands List */}
-        <View style={{paddingHorizontal: 16}}>
+        <View style={{ paddingHorizontal: 16 }}>
           <Txt weight={TxtWeight.Semi} style={styles.heading}>
             Select a Brand
           </Txt>
           <FlatList
             data={brands}
             horizontal
-            keyExtractor={item => item._id}
+            keyExtractor={(item) => item._id}
             showsHorizontalScrollIndicator={false}
-            renderItem={({item}) => (
+            renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
                   styles.brandCard,
                   selectedBrand === item._id && styles.selectedBrandCard,
                 ]}
-                onPress={() => scrollToBrand(item._id)}>
+                onPress={() => scrollToBrand(item._id)}
+              >
                 <Txt numberOfLines={1} style={styles.brandText}>
                   {item.name}
                 </Txt>
@@ -191,7 +198,7 @@ const CompanyDetail = () => {
           />
         </View>
 
-        <View style={{paddingHorizontal: 16}}>
+        <View style={{ paddingHorizontal: 16 }}>
           <Txt weight={TxtWeight.Semi} mt={20} style={styles.heading}>
             Products
           </Txt>
@@ -199,82 +206,92 @@ const CompanyDetail = () => {
             <ActivityIndicator size="large" color={COLORS.theme} />
           ) : (
             <View>
-              {sections?.map(section => {
-                return (
-                  <View
-                    key={section.brandId}
-                    ref={ref => (brandRefs.current[section.brandId] = ref)}>
-                    <Txt weight={TxtWeight.Bold} mb={10}>
-                      {section.title}
-                    </Txt>
+              {sections
+                ?.filter(
+                  (section) =>
+                    section.brandId === selectedBrand || selectedBrand === "all"
+                )
+                ?.map((section) => {
+                  return (
+                    <View
+                      key={section.brandId}
+                      ref={(ref) => (brandRefs.current[section.brandId] = ref)}
+                    >
+                      <Txt weight={TxtWeight.Bold} mb={10}>
+                        {section.title}
+                      </Txt>
 
-                    <FlatList
-                      data={section.data}
-                      numColumns={2}
-                      keyExtractor={item => item._id}
-                      columnWrapperStyle={styles.productRow}
-                      renderItem={({item}) => {
-                        const cartItem = cartItems.find(
-                          p => p._id === item._id,
-                        );
+                      <FlatList
+                        data={section.data}
+                        numColumns={2}
+                        keyExtractor={(item) => item._id}
+                        columnWrapperStyle={styles.productRow}
+                        renderItem={({ item }) => {
+                          const cartItem = cartItems.find(
+                            (p) => p._id === item._id
+                          );
 
-                        return (
-                          <View style={styles.productCard}>
-                            {/* Like/Unlike Icon */}
-                            <TouchableOpacity
-                              onPress={() => toggleWishlist(item._id)}
-                              style={styles.wishlistIcon}>
-                              <Ionicons
-                                name={
-                                  wishlist.includes(item._id)
-                                    ? 'heart'
-                                    : 'heart-outline'
-                                }
-                                size={24}
-                                color="red"
-                              />
-                            </TouchableOpacity>
-
-                            <Image
-                              source={{uri: item.image}}
-                              style={styles.productImage}
-                            />
-                            <Txt style={styles.productName}>{item.name}</Txt>
-                            <Txt style={styles.productPrice}>
-                              Rs.{' '}
-                              <Txt weight={TxtWeight.Bold}>
-                                {item.salesPrice}
-                              </Txt>
-                            </Txt>
-
-                            {/* Add to Cart Button */}
-                            <View style={styles.quantityContainer}>
+                          return (
+                            <View style={styles.productCard}>
+                              {/* Like/Unlike Icon */}
                               <TouchableOpacity
-                                onPress={() => removeFromCart(item._id)}>
+                                onPress={() => toggleWishlist(item._id)}
+                                style={styles.wishlistIcon}
+                              >
                                 <Ionicons
-                                  name="minus-circle-outline"
+                                  name={
+                                    wishlist.includes(item._id)
+                                      ? "heart"
+                                      : "heart-outline"
+                                  }
                                   size={24}
                                   color="red"
                                 />
                               </TouchableOpacity>
-                              <Txt weight={TxtWeight.Bold}>
-                                {cartItem?.quantity || 0}
+
+                              <Image
+                                source={{ uri: item.image }}
+                                style={styles.productImage}
+                              />
+                              <Txt style={styles.productName}>{item.name}</Txt>
+                              <Txt style={styles.productPrice}>
+                                Rs.{" "}
+                                <Txt weight={TxtWeight.Bold}>
+                                  {item.salesPrice}
+                                </Txt>
                               </Txt>
-                              <TouchableOpacity onPress={() => addToCart(item)}>
-                                <Ionicons
-                                  name="plus-circle-outline"
-                                  size={24}
-                                  color="green"
-                                />
-                              </TouchableOpacity>
+
+                              {/* Add to Cart Button */}
+                              <View style={styles.quantityContainer}>
+                                <TouchableOpacity
+                                  onPress={() => removeFromCart(item._id)}
+                                >
+                                  <Ionicons
+                                    name="minus-circle-outline"
+                                    size={24}
+                                    color="red"
+                                  />
+                                </TouchableOpacity>
+                                <Txt weight={TxtWeight.Bold}>
+                                  {cartItem?.quantity || 0}
+                                </Txt>
+                                <TouchableOpacity
+                                  onPress={() => addToCart(item)}
+                                >
+                                  <Ionicons
+                                    name="plus-circle-outline"
+                                    size={24}
+                                    color="green"
+                                  />
+                                </TouchableOpacity>
+                              </View>
                             </View>
-                          </View>
-                        );
-                      }}
-                    />
-                  </View>
-                );
-              })}
+                          );
+                        }}
+                      />
+                    </View>
+                  );
+                })}
             </View>
           )}
         </View>
@@ -290,7 +307,7 @@ export default CompanyDetail;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   heading: {
     fontSize: 18,
@@ -298,9 +315,9 @@ const styles = StyleSheet.create({
   },
   brandCard: {
     padding: 10,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 10,
   },
   selectedBrandCard: {
@@ -313,11 +330,11 @@ const styles = StyleSheet.create({
   },
   brandText: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 100,
   },
   productRow: {
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     marginBottom: 10,
     gap: 10,
   },
@@ -326,11 +343,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgGrey,
     borderRadius: 8,
     padding: 12,
-    alignItems: 'center',
-    position: 'relative',
+    alignItems: "center",
+    position: "relative",
   },
   wishlistIcon: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     zIndex: 10,
@@ -348,7 +365,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   quantityContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 20,
   },
 });
