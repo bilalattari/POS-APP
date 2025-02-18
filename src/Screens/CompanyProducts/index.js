@@ -5,7 +5,6 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   findNodeHandle,
 } from "react-native";
@@ -23,6 +22,8 @@ const CompanyDetail = () => {
   const { companyId } = route.params;
   const scrollViewRef = useRef(null);
   const brandRefs = useRef({});
+  // New ref for horizontal brands FlatList
+  const brandListRef = useRef(null);
 
   const { addToCart, removeFromCart, cartItems } = useCart();
   const [brands, setBrands] = useState([]);
@@ -32,6 +33,8 @@ const CompanyDetail = () => {
   const [selectedBrand, setSelectedBrand] = useState("all");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  // Store the Y positions (layout offsets) of each product section
+  const [sectionTops, setSectionTops] = useState({});
 
   useEffect(() => {
     getUserId();
@@ -47,25 +50,65 @@ const CompanyDetail = () => {
     }
   }, [userId]);
 
-  const scrollToBrand = (brandId) => {
-    setSelectedBrand(brandId);
-    if (brandId === "all") {
-      fetchCompanyData();
-    } else {
-      fetchProducts(brandId);
+  // When scrolling, determine which section is closest to the top.
+  // Also, if at the very top, select the "all" brand.
+  const handleScroll = (event) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    // If the scroll is at the very top, select "all"
+    if (scrollY <= 50) {
+      if (selectedBrand !== "all") {
+        setSelectedBrand("all");
+        if (brandListRef.current) {
+          brandListRef.current.scrollToIndex({ index: 0, animated: true });
+        }
+      }
+      return;
     }
 
-    const node = findNodeHandle(brandRefs.current[brandId]);
-    if (node && scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ y: node - 50, animated: true });
+    const headerOffset = 50;
+    let currentBrand = selectedBrand;
+    let minDiff = Number.MAX_VALUE;
+    Object.entries(sectionTops).forEach(([brandId, layoutY]) => {
+      const diff = Math.abs(layoutY - (scrollY + headerOffset));
+      if (diff < minDiff) {
+        minDiff = diff;
+        currentBrand = brandId;
+      }
+    });
+    if (currentBrand && currentBrand !== selectedBrand) {
+      setSelectedBrand(currentBrand);
+      // Scroll the horizontal brands list so that the selected brand is centered.
+      const index = brands.findIndex((b) => b._id === currentBrand);
+      if (brandListRef.current && index >= 0) {
+        brandListRef.current.scrollToIndex({ index, viewPosition: 0.5 });
+      }
     }
   };
 
-  // useEffect(() => {
-  //   if (selectedBrand && userId) {
-  //     fetchProducts(selectedBrand);
-  //   }
-  // }, [selectedBrand, userId]);
+  // When a brand is tapped, scroll to its section.
+  // Also, scroll the horizontal brands list so that the selected brand is visible.
+  const scrollToBrand = (brandId) => {
+    setSelectedBrand(brandId);
+    const index = brands.findIndex((b) => b._id === brandId);
+    if (brandListRef.current && index >= 0) {
+      brandListRef.current.scrollToIndex({ index, viewPosition: 0.5 });
+    }
+
+    if (brandId === "all") {
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({ y: 0, animated: true });
+      }
+      fetchCompanyData();
+    } else {
+      const yPos = sectionTops[brandId];
+      if (yPos !== undefined && scrollViewRef.current) {
+        // Subtract the header offset so the section isn’t hidden under the sticky brands bar
+        scrollViewRef.current.scrollTo({ y: yPos - 50, animated: true });
+      }
+      // Optionally, call fetchProducts(brandId) if you want to load only that brand’s products
+      // fetchProducts(brandId);
+    }
+  };
 
   const getUserId = async () => {
     try {
@@ -94,6 +137,7 @@ const CompanyDetail = () => {
           data: brand.products || [],
         }));
 
+        // Add "All" to the brands list.
         setBrands([{ name: "All", _id: "all" }, ...brandsData]);
         setSections(sectionsData);
 
@@ -117,7 +161,6 @@ const CompanyDetail = () => {
         `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/brand?limit=10&page=1&company=${companyId}`
       );
       if (!response.data.error && response.data.data.length > 0) {
-        let fetchBrands = response.data.data;
         setBrands([{ name: "All", _id: "all" }, ...response.data.data]);
         setSelectedBrand("all");
         fetchCompanyData();
@@ -160,11 +203,10 @@ const CompanyDetail = () => {
       );
 
       if (!response.data.error) {
-        setWishlist(
-          (prev) =>
-            prev.includes(productId)
-              ? prev.filter((id) => id !== productId) // Remove from wishlist
-              : [...prev, productId] // Add to wishlist
+        setWishlist((prev) =>
+          prev.includes(productId)
+            ? prev.filter((id) => id !== productId)
+            : [...prev, productId]
         );
       }
     } catch (error) {
@@ -175,13 +217,27 @@ const CompanyDetail = () => {
   return (
     <View style={styles.container}>
       <Header isBack={true} />
-      <ScrollView>
-        {/* 🔹 Brands List */}
-        <View style={{ paddingHorizontal: 16 }}>
+      <ScrollView
+        ref={scrollViewRef}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        stickyHeaderIndices={[0]} // Make the brands bar sticky
+      >
+        {/* 🔹 Brands List - Stays at the top */}
+        <View
+          style={[
+            {
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              backgroundColor: "#fff",
+            },
+          ]}
+        >
           <Txt weight={TxtWeight.Semi} style={styles.heading}>
             Select a Brand
           </Txt>
           <FlatList
+            ref={brandListRef}
             data={brands}
             horizontal
             keyExtractor={(item) => item._id}
@@ -202,133 +258,122 @@ const CompanyDetail = () => {
           />
         </View>
 
+        {/* 🔹 Products List */}
         <View style={{ paddingHorizontal: 16 }}>
-          <Txt weight={TxtWeight.Semi} mt={20} style={styles.heading}>
-            Products
-          </Txt>
-          {loading ? (
-            <ActivityIndicator size="large" color={COLORS.theme} />
-          ) : (
-            <View>
-              {sections
-                ?.filter(
-                  (section) =>
-                    section.brandId === selectedBrand || selectedBrand === "all"
-                )
-                ?.map((section) => {
-                  return (
-                    <View
-                      key={section.brandId}
-                      ref={(ref) => (brandRefs.current[section.brandId] = ref)}
-                    >
-                      <Txt weight={TxtWeight.Bold} mb={10}>
-                        {section.title}
-                      </Txt>
+          <View>
+            {sections?.map((section) => {
+              return (
+                <View
+                  key={section.brandId}
+                  // Save the reference and record the layout position of each section
+                  ref={(ref) => (brandRefs.current[section.brandId] = ref)}
+                  onLayout={(event) => {
+                    const layoutY = event.nativeEvent.layout.y;
+                    setSectionTops((prev) => ({
+                      ...prev,
+                      [section.brandId]: layoutY,
+                    }));
+                  }}
+                >
+                  <Txt weight={TxtWeight.Bold} mb={10}>
+                    {section.title}
+                  </Txt>
 
-                      <FlatList
-                        data={section.data}
-                        numColumns={2}
-                        keyExtractor={(item) => item._id}
-                        columnWrapperStyle={styles.productRow}
-                        renderItem={({ item }) => {
-                          const cartItem = cartItems.find(
-                            (p) => p._id === item._id
-                          );
-                          const quantityInCart = cartItem
-                            ? cartItem.quantity
-                            : 0;
-                          const isOutOfStock = item.remainingStock === 0;
-                          const isMaxReached =
-                            quantityInCart >= item.remainingStock;
+                  <FlatList
+                    data={section.data}
+                    numColumns={2}
+                    keyExtractor={(item) => item._id}
+                    columnWrapperStyle={styles.productRow}
+                    renderItem={({ item }) => {
+                      const cartItem = cartItems.find(
+                        (p) => p._id === item._id
+                      );
+                      const quantityInCart = cartItem ? cartItem.quantity : 0;
+                      const isOutOfStock = item.remainingStock === 0;
+                      const isMaxReached =
+                        quantityInCart >= item.remainingStock;
 
-                          return (
-                            <View
-                              style={[
-                                styles.productCard,
-                                isMaxReached && styles.disabledCard,
-                              ]}
+                      return (
+                        <View
+                          style={[
+                            styles.productCard,
+                            isMaxReached && styles.disabledCard,
+                          ]}
+                        >
+                          {/* Like/Unlike Icon */}
+                          <TouchableOpacity
+                            onPress={() => toggleWishlist(item._id)}
+                            style={styles.wishlistIcon}
+                            disabled={isOutOfStock}
+                          >
+                            <Ionicons
+                              name={
+                                wishlist.includes(item._id)
+                                  ? "heart"
+                                  : "heart-outline"
+                              }
+                              size={24}
+                              color="red"
+                            />
+                          </TouchableOpacity>
+
+                          <Image
+                            source={{ uri: item.image || "" }}
+                            style={styles.productImage}
+                          />
+                          <Txt style={styles.productName}>{item.name}</Txt>
+                          <Txt style={styles.productPrice}>
+                            Rs.{" "}
+                            <Txt weight={TxtWeight.Bold}>{item.salesPrice}</Txt>
+                          </Txt>
+
+                          {/* Out of Stock Label */}
+                          {isMaxReached && (
+                            <Txt style={styles.outOfStockLabel}>
+                              Out of Stock
+                            </Txt>
+                          )}
+
+                          {/* Quantity Controls */}
+                          <View style={styles.quantityContainer}>
+                            <TouchableOpacity
+                              onPress={() => removeFromCart(item._id)}
+                              disabled={quantityInCart === 0 || isOutOfStock}
                             >
-                              {/* Like/Unlike Icon */}
-                              <TouchableOpacity
-                                onPress={() => toggleWishlist(item._id)}
-                                style={styles.wishlistIcon}
-                                disabled={isOutOfStock}
-                              >
-                                <Ionicons
-                                  name={
-                                    wishlist.includes(item._id)
-                                      ? "heart"
-                                      : "heart-outline"
-                                  }
-                                  size={24}
-                                  color="red"
-                                />
-                              </TouchableOpacity>
-
-                              <Image
-                                source={{ uri: item.image || ""}}
-                                style={styles.productImage}
+                              <Ionicons
+                                name="minus-circle-outline"
+                                size={24}
+                                color="black"
                               />
-                              <Txt style={styles.productName}>{item.name}</Txt>
-                              <Txt style={styles.productPrice}>
-                                Rs.{" "}
-                                <Txt weight={TxtWeight.Bold}>
-                                  {item.salesPrice}
-                                </Txt>
-                              </Txt>
+                            </TouchableOpacity>
 
-                              {/* Show "Out of Stock" Label */}
-                              {isMaxReached && (
-                                <Txt style={styles.outOfStockLabel}>
-                                  Out of Stock
-                                </Txt>
-                              )}
+                            <Txt>{quantityInCart}</Txt>
 
-                              {/* Quantity Controls */}
-                              <View style={styles.quantityContainer}>
-                                <TouchableOpacity
-                                  onPress={() => removeFromCart(item._id)}
-                                  disabled={
-                                    quantityInCart === 0 || isOutOfStock
-                                  }
-                                >
-                                  <Ionicons
-                                    name="minus-circle-outline"
-                                    size={24}
-                                    color="black"
-                                  />
-                                </TouchableOpacity>
-
-                                <Txt>{quantityInCart}</Txt>
-
-                                <TouchableOpacity
-                                  onPress={() => addToCart(item)}
-                                  disabled={isMaxReached || isOutOfStock}
-                                >
-                                  <Ionicons
-                                    name="plus-circle-outline"
-                                    size={24}
-                                    color={
-                                      isMaxReached || isOutOfStock
-                                        ? "gray"
-                                        : "black"
-                                    }
-                                  />
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          );
-                        }}
-                      />
-                    </View>
-                  );
-                })}
-            </View>
-          )}
+                            <TouchableOpacity
+                              onPress={() => addToCart(item)}
+                              disabled={isMaxReached || isOutOfStock}
+                            >
+                              <Ionicons
+                                name="plus-circle-outline"
+                                size={24}
+                                color={
+                                  isMaxReached || isOutOfStock
+                                    ? "gray"
+                                    : "black"
+                                }
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
         </View>
       </ScrollView>
-
-      {/* 🔹 Products List */}
     </View>
   );
 };
