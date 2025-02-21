@@ -157,42 +157,63 @@ const CartScreen = () => {
   // Checkout View with order summary and payment selection
   const renderCheckoutView = () => (
     <View style={styles.contentContainer}>
-      <Txt weight={TxtWeight.Semi} style={styles.summaryText}>
-        Total Amount: Rs. {calculateTotal()}
-      </Txt>
+      <ScrollView>
+        <Txt weight={TxtWeight.Semi} style={styles.summaryText}>
+          Total Amount: Rs. {calculateTotal()}
+        </Txt>
 
-      {/* Payment Method Selection */}
-      <Txt weight={TxtWeight.Semi} style={styles.label}>
-        Select Payment Method
-      </Txt>
-      <View style={styles.paymentMethodContainer}>
-        <TouchableOpacity
-          style={[
-            styles.paymentButton,
-            paymentMethod === "Cash" && styles.selectedPayment,
-          ]}
-          onPress={() => setPaymentMethod("Cash")}
-        >
-          <Txt>Cash</Txt>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.paymentButton,
-            paymentMethod === "Online Transfer" && styles.selectedPayment,
-          ]}
-          onPress={() => setPaymentMethod("Online Transfer")}
-        >
-          <Txt>Online Transfer</Txt>
-        </TouchableOpacity>
-      </View>
+        {/* Payment Method Selection */}
+        <Txt weight={TxtWeight.Semi} style={styles.label}>
+          Select Payment Method
+        </Txt>
+        <View style={styles.paymentMethodContainer}>
+          <TouchableOpacity
+            style={[
+              styles.paymentButton,
+              paymentMethod === "Cash" && styles.selectedPayment,
+            ]}
+            onPress={() => setPaymentMethod("Cash")}
+          >
+            <Txt>Cash</Txt>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.paymentButton,
+              paymentMethod === "Online Transfer" && styles.selectedPayment,
+            ]}
+            onPress={() => setPaymentMethod("Online Transfer")}
+          >
+            <Txt>Online Transfer</Txt>
+          </TouchableOpacity>
+        </View>
 
-      {/* Pickup Location (Hard-coded) */}
-      <Txt weight={TxtWeight.Semi} style={styles.label}>
-        Pickup Location
-      </Txt>
-      <Txt mt={2} mb={20}>
-        Gulshane Iqbaal Block 15 Karachi
-      </Txt>
+        {/* Pickup Location (Hard-coded) */}
+        <Txt weight={TxtWeight.Semi} style={styles.label}>
+          Pickup Location
+        </Txt>
+        <Txt mt={2} mb={20}>
+          Gulshane Iqbaal Block 15 Karachi
+        </Txt>
+
+        {paymentMethod === "Online Transfer" && (
+          <View>
+            <Txt weight={TxtWeight.Bold}>
+              Bank : <Txt weight={TxtWeight.Medium}>Bank Alfalah</Txt>{" "}
+            </Txt>
+            <Txt weight={TxtWeight.Bold}>
+              Account Number :{" "}
+              <Txt weight={TxtWeight.Medium}>1236125317256317263</Txt>{" "}
+            </Txt>
+            <Txt mt={10} weight={TxtWeight.Bold}>
+              Bank : <Txt weight={TxtWeight.Medium}>Habib Bank Limited</Txt>{" "}
+            </Txt>
+            <Txt weight={TxtWeight.Bold}>
+              Account Number :{" "}
+              <Txt weight={TxtWeight.Medium}>1236125317256317263</Txt>{" "}
+            </Txt>
+          </View>
+        )}
+      </ScrollView>
 
       {/* Complete Order Button */}
       <TouchableOpacity
@@ -218,7 +239,7 @@ const CartScreen = () => {
   return (
     <View style={styles.container}>
       <Header isBack={true} headerTxt={"My Cart"} />
-      <View style={{ paddingHorizontal: 12 , flex  : 1,paddingBottom : 16 }}>
+      <View style={{ paddingHorizontal: 12, flex: 1, paddingBottom: 16 }}>
         {isCheckout ? renderCheckoutView() : renderCartView()}
       </View>
     </View>
