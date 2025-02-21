@@ -6,11 +6,10 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  findNodeHandle,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Txt from "../../components/Txt";
 import { COLORS, TxtWeight } from "../../Constants";
 import Header from "../../components/Header";
@@ -22,8 +21,9 @@ const CompanyDetail = () => {
   const { companyId } = route.params;
   const scrollViewRef = useRef(null);
   const brandRefs = useRef({});
-  // New ref for horizontal brands FlatList
   const brandListRef = useRef(null);
+  // New ref for companies list
+  const companyListRef = useRef(null);
 
   const { addToCart, removeFromCart, cartItems } = useCart();
   const [brands, setBrands] = useState([]);
@@ -33,16 +33,19 @@ const CompanyDetail = () => {
   const [selectedBrand, setSelectedBrand] = useState("all");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
-  // Store the Y positions (layout offsets) of each product section
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(companyId);
+
   const [sectionTops, setSectionTops] = useState({});
 
+  const navigation = useNavigation();
   useEffect(() => {
     getUserId();
+    fetchCompanies();
+    // if (companyId) {
+    //   setSelectedCompany(companyId);
+    // }
   }, []);
-
-  useEffect(() => {
-    console.log("all products =>", products);
-  }, [products]);
 
   useEffect(() => {
     if (userId) {
@@ -50,11 +53,20 @@ const CompanyDetail = () => {
     }
   }, [userId]);
 
-  // When scrolling, determine which section is closest to the top.
-  // Also, if at the very top, select the "all" brand.
+  useEffect(() => {
+    if (selectedCompany) {
+      fetchCompanyData(selectedCompany);
+    }
+    // Scroll the companies list so that the selected company is centered
+    const index = companies.findIndex((c) => c._id === selectedCompany);
+    if (companyListRef.current && index >= 0) {
+      companyListRef.current.scrollToIndex({ index, viewPosition: 0.5 });
+    }
+  }, [selectedCompany, companies]);
+
+  // Handle vertical scrolling for products/brands
   const handleScroll = (event) => {
     const scrollY = event.nativeEvent.contentOffset.y;
-    // If the scroll is at the very top, select "all"
     if (scrollY <= 50) {
       if (selectedBrand !== "all") {
         setSelectedBrand("all");
@@ -77,7 +89,6 @@ const CompanyDetail = () => {
     });
     if (currentBrand && currentBrand !== selectedBrand) {
       setSelectedBrand(currentBrand);
-      // Scroll the horizontal brands list so that the selected brand is centered.
       const index = brands.findIndex((b) => b._id === currentBrand);
       if (brandListRef.current && index >= 0) {
         brandListRef.current.scrollToIndex({ index, viewPosition: 0.5 });
@@ -85,8 +96,19 @@ const CompanyDetail = () => {
     }
   };
 
-  // When a brand is tapped, scroll to its section.
-  // Also, scroll the horizontal brands list so that the selected brand is visible.
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get(
+        "https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/company?limit=9&page=1"
+      );
+      if (!response.data.error) {
+        setCompanies(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+    }
+  };
+
   const scrollToBrand = (brandId) => {
     setSelectedBrand(brandId);
     const index = brands.findIndex((b) => b._id === brandId);
@@ -102,11 +124,8 @@ const CompanyDetail = () => {
     } else {
       const yPos = sectionTops[brandId];
       if (yPos !== undefined && scrollViewRef.current) {
-        // Subtract the header offset so the section isn’t hidden under the sticky brands bar
         scrollViewRef.current.scrollTo({ y: yPos - 50, animated: true });
       }
-      // Optionally, call fetchProducts(brandId) if you want to load only that brand’s products
-      // fetchProducts(brandId);
     }
   };
 
@@ -126,7 +145,7 @@ const CompanyDetail = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/company/companyProducts/${companyId}`
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/company/companyProducts/${selectedCompany}`
       );
 
       if (!response.data.error) {
@@ -137,11 +156,9 @@ const CompanyDetail = () => {
           data: brand.products || [],
         }));
 
-        // Add "All" to the brands list.
         setBrands([{ name: "All", _id: "all" }, ...brandsData]);
         setSections(sectionsData);
 
-        // Extract wishlist products
         setWishlist(
           brandsData
             .flatMap((brand) => brand.products)
@@ -221,9 +238,9 @@ const CompanyDetail = () => {
         ref={scrollViewRef}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        stickyHeaderIndices={[0]} // Make the brands bar sticky
+        stickyHeaderIndices={[0]}
       >
-        {/* 🔹 Brands List - Stays at the top */}
+        {/* Companies List */}
         <View
           style={[
             {
@@ -233,9 +250,32 @@ const CompanyDetail = () => {
             },
           ]}
         >
+          <FlatList
+            ref={companyListRef}
+            data={companies}
+            horizontal
+            keyExtractor={(item) => item._id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.companyList}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.brandCard,
+                  selectedCompany === item._id && styles.selectedBrandCard,
+                ]}
+                onPress={() => setSelectedCompany(item._id)}
+              >
+                <Txt numberOfLines={1} style={styles.companyText}>
+                  {item.name}
+                </Txt>
+              </TouchableOpacity>
+            )}
+          />
           <Txt weight={TxtWeight.Semi} style={styles.heading}>
             Select a Brand
           </Txt>
+
+          {/* Brands List */}
           <FlatList
             ref={brandListRef}
             data={brands}
@@ -258,120 +298,105 @@ const CompanyDetail = () => {
           />
         </View>
 
-        {/* 🔹 Products List */}
+        {/* Products List */}
         <View style={{ paddingHorizontal: 16 }}>
-          <View>
-            {sections?.map((section) => {
-              return (
-                <View
-                  key={section.brandId}
-                  // Save the reference and record the layout position of each section
-                  ref={(ref) => (brandRefs.current[section.brandId] = ref)}
-                  onLayout={(event) => {
-                    const layoutY = event.nativeEvent.layout.y;
-                    setSectionTops((prev) => ({
-                      ...prev,
-                      [section.brandId]: layoutY,
-                    }));
-                  }}
-                >
-                  <Txt weight={TxtWeight.Bold} mb={10}>
-                    {section.title}
-                  </Txt>
-
-                  <FlatList
-                    data={section.data}
-                    numColumns={2}
-                    keyExtractor={(item) => item._id}
-                    columnWrapperStyle={styles.productRow}
-                    renderItem={({ item }) => {
-                      const cartItem = cartItems.find(
-                        (p) => p._id === item._id
-                      );
-                      const quantityInCart = cartItem ? cartItem.quantity : 0;
-                      const isOutOfStock = item.remainingStock === 0;
-                      const isMaxReached =
-                        quantityInCart >= item.remainingStock;
-
-                      return (
-                        <View
-                          style={[
-                            styles.productCard,
-                            isMaxReached && styles.disabledCard,
-                          ]}
+          {sections?.map((section) => {
+            return (
+              <View
+                key={section.brandId}
+                ref={(ref) => (brandRefs.current[section.brandId] = ref)}
+                onLayout={(event) => {
+                  const layoutY = event.nativeEvent.layout.y;
+                  setSectionTops((prev) => ({
+                    ...prev,
+                    [section.brandId]: layoutY,
+                  }));
+                }}
+              >
+                <Txt weight={TxtWeight.Bold} mb={10}>
+                  {section.title}
+                </Txt>
+                <FlatList
+                  data={section.data}
+                  numColumns={2}
+                  keyExtractor={(item) => item._id}
+                  columnWrapperStyle={styles.productRow}
+                  renderItem={({ item }) => {
+                    const cartItem = cartItems.find((p) => p._id === item._id);
+                    const quantityInCart = cartItem ? cartItem.quantity : 0;
+                    const isOutOfStock = item.remainingStock === 0;
+                    const isMaxReached = quantityInCart >= item.remainingStock;
+                    return (
+                      <TouchableOpacity
+                        onPress={() =>
+                          navigation.navigate("ProductDetail", {
+                            productId: item._id,
+                          })
+                        }
+                        style={[
+                          styles.productCard,
+                          isMaxReached && styles.disabledCard,
+                        ]}
+                      >
+                        <TouchableOpacity
+                          onPress={() => toggleWishlist(item._id)}
+                          style={styles.wishlistIcon}
+                          disabled={isOutOfStock}
                         >
-                          {/* Like/Unlike Icon */}
+                          <Ionicons
+                            name={
+                              wishlist.includes(item._id)
+                                ? "heart"
+                                : "heart-outline"
+                            }
+                            size={24}
+                            color="red"
+                          />
+                        </TouchableOpacity>
+                        <Image
+                          source={{ uri: item.image || "" }}
+                          style={styles.productImage}
+                        />
+                        <Txt style={styles.productName}>{item.name}</Txt>
+                        <Txt style={styles.productPrice}>
+                          Rs.{" "}
+                          <Txt weight={TxtWeight.Bold}>{item.salesPrice}</Txt>
+                        </Txt>
+                        {isMaxReached && (
+                          <Txt style={styles.outOfStockLabel}>Out of Stock</Txt>
+                        )}
+                        <View style={styles.quantityContainer}>
                           <TouchableOpacity
-                            onPress={() => toggleWishlist(item._id)}
-                            style={styles.wishlistIcon}
-                            disabled={isOutOfStock}
+                            onPress={() => removeFromCart(item._id)}
+                            disabled={quantityInCart === 0 || isOutOfStock}
                           >
                             <Ionicons
-                              name={
-                                wishlist.includes(item._id)
-                                  ? "heart"
-                                  : "heart-outline"
-                              }
+                              name="minus-circle-outline"
                               size={24}
-                              color="red"
+                              color="black"
                             />
                           </TouchableOpacity>
-
-                          <Image
-                            source={{ uri: item.image || "" }}
-                            style={styles.productImage}
-                          />
-                          <Txt style={styles.productName}>{item.name}</Txt>
-                          <Txt style={styles.productPrice}>
-                            Rs.{" "}
-                            <Txt weight={TxtWeight.Bold}>{item.salesPrice}</Txt>
-                          </Txt>
-
-                          {/* Out of Stock Label */}
-                          {isMaxReached && (
-                            <Txt style={styles.outOfStockLabel}>
-                              Out of Stock
-                            </Txt>
-                          )}
-
-                          {/* Quantity Controls */}
-                          <View style={styles.quantityContainer}>
-                            <TouchableOpacity
-                              onPress={() => removeFromCart(item._id)}
-                              disabled={quantityInCart === 0 || isOutOfStock}
-                            >
-                              <Ionicons
-                                name="minus-circle-outline"
-                                size={24}
-                                color="black"
-                              />
-                            </TouchableOpacity>
-
-                            <Txt>{quantityInCart}</Txt>
-
-                            <TouchableOpacity
-                              onPress={() => addToCart(item)}
-                              disabled={isMaxReached || isOutOfStock}
-                            >
-                              <Ionicons
-                                name="plus-circle-outline"
-                                size={24}
-                                color={
-                                  isMaxReached || isOutOfStock
-                                    ? "gray"
-                                    : "black"
-                                }
-                              />
-                            </TouchableOpacity>
-                          </View>
+                          <Txt>{quantityInCart}</Txt>
+                          <TouchableOpacity
+                            onPress={() => addToCart(item)}
+                            disabled={isMaxReached || isOutOfStock}
+                          >
+                            <Ionicons
+                              name="plus-circle-outline"
+                              size={24}
+                              color={
+                                isMaxReached || isOutOfStock ? "gray" : "black"
+                              }
+                            />
+                          </TouchableOpacity>
                         </View>
-                      );
-                    }}
-                  />
-                </View>
-              );
-            })}
-          </View>
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
@@ -399,10 +424,6 @@ const styles = StyleSheet.create({
   selectedBrandCard: {
     borderColor: COLORS.theme,
     borderWidth: 2,
-  },
-  brandImage: {
-    width: 50,
-    height: 50,
   },
   brandText: {
     fontSize: 14,

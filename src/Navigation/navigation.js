@@ -10,6 +10,7 @@ import CartScreen from '../Screens/Cart';
 import ProfileScreen from '../Screens/Profile';
 import {UserContext} from '../context/UserContext';
 import Search from '../Screens/Search';
+import ProductDetail from '../Screens/ProductDetail';
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,7 @@ function Navigator() {
             <Stack.Screen name="LikedProducts" component={LikedProducts} />
             <Stack.Screen name="Cart" component={CartScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="ProductDetail" component={ProductDetail} />
           </>
         ) : (
           <Stack.Screen name="Login" component={Login} />
