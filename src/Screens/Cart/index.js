@@ -71,6 +71,7 @@ const CartScreen = () => {
         orderTax: 0,
         shipping: 0,
         termsConditions: "No returns after 7 days.",
+        isOnline: true,
         notes: `Pickup from 'Default location'`,
         products: cartItems.map((product) => ({
           product: product._id,
