@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { StyleSheet, View, ScrollView, Image, TouchableOpacity, Dimensions, FlatList } from "react-native"
+import { StyleSheet, View, ScrollView, Image, TouchableOpacity, Dimensions, FlatList, ActivityIndicator } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import axios from "axios"
 import { useRoute, useFocusEffect } from "@react-navigation/native"
@@ -322,9 +322,11 @@ const ProductDetail = () => {
     return (
       <View>
         <Header isBack={true} />
-        <Txt mt={40} center style={styles.loadingText}>
+        <ActivityIndicator size="large" color={COLORS.theme} style={styles.loadingContainer} />
+        {/* Uncomment if you want to show text while loading */}
+        {/* <Txt mt={40} center style={styles.loadingText}>
           Loading product details...
-        </Txt>
+        </Txt> */}
       </View>
     )
   }

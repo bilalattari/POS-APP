@@ -279,12 +279,6 @@ const CompanyDetail = () => {
         }
         style={[styles.productCard, isMaxReached && styles.disabledCard, isVariant && styles.variantCard]}
       >
-        {/* Variant Badge */}
-        {isVariant && (
-          <View style={styles.variantBadge}>
-            <Txt style={styles.variantBadgeText}>Variant</Txt>
-          </View>
-        )}
 
         {/* Wishlist Icon */}
         <TouchableOpacity
@@ -312,7 +306,7 @@ const CompanyDetail = () => {
         {isOutOfStock && <Txt style={styles.outOfStockLabel}>Out of Stock</Txt>}
 
         {/* View Details Button */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.viewDetailsButton}
           onPress={() =>
             navigation.navigate("ProductDetail", {
@@ -322,7 +316,7 @@ const CompanyDetail = () => {
           }
         >
           <Txt style={styles.viewDetailsText}>View Details</Txt>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </TouchableOpacity>
     )
   }
