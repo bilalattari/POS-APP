@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { StyleSheet, View, ScrollView, Image, TouchableOpacity, Dimensions, FlatList } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import axios from "axios"
-import { useRoute } from "@react-navigation/native"
+import { useRoute, useFocusEffect } from "@react-navigation/native"
 import Txt from "../../components/Txt"
 import { COLORS, TxtWeight } from "../../Constants"
 import Header from "../../components/Header"
@@ -20,7 +20,19 @@ const ProductDetail = () => {
   const [userId, setUserId] = useState(null)
   const [wishlist, setWishlist] = useState([])
   const [selectedVariant, setSelectedVariant] = useState(null)
-  const { addToCart, removeFromCart, cartItems } = useCart()
+  const [noOfPieces, setNoOfPieces] = useState(0)
+  const [noOfCartons, setNoOfCartons] = useState(0)
+  const [isInCart, setIsInCart] = useState(false)
+  const { addToCart, removeFromCart, cartItems, updateCartItem } = useCart()
+
+  // Use useFocusEffect to ensure cart state is updated when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (product) {
+        updateQuantitiesFromCart()
+      }
+    }, [product, selectedVariant, cartItems]),
+  )
 
   useEffect(() => {
     getUserId()
@@ -31,10 +43,25 @@ const ProductDetail = () => {
     // Set the first variant as default when product loads and has variants
     if (product && product.productType === "Variant Type Product" && product.variants.length > 0) {
       setSelectedVariant(product.variants[0])
-      console.log(product.variants[0], "===> first variant this is selected by default");
-      
     }
   }, [product])
+
+  // Auto-update cart whenever quantities change
+  useEffect(() => {
+    if (product) {
+      // Only update if product is loaded
+      const totalQuantity = calculateTotalQuantity()
+
+      // If both are zero, remove from cart
+      if (totalQuantity === 0 && isInCart) {
+        removeFromCart(getCartItemId())
+        setIsInCart(false)
+      } else if (totalQuantity > 0) {
+        // Otherwise update cart with current quantities
+        updateCart()
+      }
+    }
+  }, [noOfPieces, noOfCartons])
 
   const getUserId = async () => {
     try {
@@ -50,13 +77,11 @@ const ProductDetail = () => {
 
   const fetchProductDetail = async () => {
     try {
-      // Update the API endpoint as per your backend
       const response = await axios.get(
         `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product/${productId}`,
       )
       if (!response.data.error) {
         setProduct(response.data.data)
-        console.log(response?.data?.data, "product detail data")
       }
     } catch (error) {
       console.error("Error fetching product detail:", error)
@@ -80,53 +105,177 @@ const ProductDetail = () => {
     }
   }
 
-  const handleAddToCart = () => {
-    if (!product) return
+  const getCartItemId = () => {
+    if (!product) return null
 
     if (product.productType === "Variant Type Product" && selectedVariant) {
-      // For variant products, create a custom payload
-      const variantCartItem = {
-        product: product._id,
-        productName: product.name,
-        unitPrice: selectedVariant.salesPrice,
-        cartonPrice: selectedVariant.salesPriceOfCarton,
-        subtotal: selectedVariant.salesPrice, // Initial subtotal for 1 item
-        variantId: selectedVariant.variantId,
-        variantName: selectedVariant.variantValue,
-        noOfPieces: 1,
-        quantity: 1,
-        image: product.image,
-        remainingStock: selectedVariant.remainingStock,
-        _id: `${product._id}-${selectedVariant.variantId}`, // Create a unique ID for the cart item
-      }
-      console.log("this item is added to cart ==>" , variantCartItem);
-      
-      addToCart(variantCartItem)
+      return `${product._id}-${selectedVariant.variantId}`
     } else {
-      // For single products, use the existing logic
-      addToCart(product)
+      return product._id
     }
   }
 
-  const handleRemoveFromCart = () => {
-    if (!product) return
+  const updateQuantitiesFromCart = () => {
+    const cartItemId = getCartItemId()
+    if (!cartItemId) return
 
-    if (product.productType === "Variant Type Product" && selectedVariant) {
-      removeFromCart(`${product._id}-${selectedVariant.variantId}`)
+    const existingItem = cartItems.find((item) => item._id === cartItemId)
+    if (existingItem) {
+      // Ensure we're using numeric values with fallbacks to 0
+      setNoOfPieces(Number(existingItem.noOfPieces) || 0)
+      setNoOfCartons(Number(existingItem.noOfCartons) || 0)
+      setIsInCart(true)
     } else {
-      removeFromCart(product._id)
+      setNoOfPieces(0)
+      setNoOfCartons(0)
+      setIsInCart(false)
     }
   }
 
-  const getCartQuantity = () => {
+  const getRule = () => {
+    if (!product) return 1
+
+    if (product.productType === "Variant Type Product" && selectedVariant) {
+      return Number(selectedVariant.rule) || 1
+    } else {
+      return Number(product.rule) || 1
+    }
+  }
+
+  const calculateTotalQuantity = () => {
+    const rule = getRule()
+    return Number(noOfPieces) + Number(noOfCartons) * rule
+  }
+
+  const calculateSubtotal = () => {
     if (!product) return 0
 
+    let unitPrice, cartonPrice
+
     if (product.productType === "Variant Type Product" && selectedVariant) {
-      const variantCartItem = cartItems.find((item) => item._id === `${product._id}-${selectedVariant.variantId}`)
-      return variantCartItem ? variantCartItem.quantity : 0
+      unitPrice = Number(selectedVariant.salesPrice) || 0
+      cartonPrice = Number(selectedVariant.salesPriceOfCarton) || 0
     } else {
-      const cartItem = cartItems.find((p) => p._id === product._id)
-      return cartItem ? cartItem.quantity : 0
+      unitPrice = Number(product.salesPrice) || 0
+      cartonPrice = Number(product.salesPriceOfCarton) || 0
+    }
+
+    return Number(noOfPieces) * unitPrice + Number(noOfCartons) * cartonPrice
+  }
+
+  const createCartItem = () => {
+    const totalQuantity = calculateTotalQuantity()
+    const subtotal = calculateSubtotal()
+
+    if (product.productType === "Variant Type Product" && selectedVariant) {
+      // For variant products
+      return {
+        product: product._id,
+        quantity: totalQuantity,
+        productName: product.name,
+        name: product.name, // For compatibility with cart screen
+        unitPrice: Number(selectedVariant.salesPrice) || 0,
+        cartonPrice: Number(selectedVariant.salesPriceOfCarton) || 0,
+        subtotal: subtotal,
+        variantId: selectedVariant.variantId,
+        variantName: selectedVariant.variantValue,
+        noOfCartons: Number(noOfCartons),
+        noOfPieces: Number(noOfPieces),
+        image: product.image,
+        remainingStock: Number(selectedVariant.remainingStock) || 0,
+        salesPrice: Number(selectedVariant.salesPrice) || 0,
+        salesPriceOfCarton: Number(selectedVariant.salesPriceOfCarton) || 0,
+        salesPriceofCarton: Number(selectedVariant.salesPriceOfCarton) || 0, // For compatibility with cart screen
+        rule: Number(selectedVariant.rule) || 1,
+        itemCode: selectedVariant.itemCode || "",
+        productType: product.productType,
+        company: product.company,
+        category: product.category,
+        brand: product.brand,
+        _id: `${product._id}-${selectedVariant.variantId}`,
+      }
+    } else {
+      // For single products
+      return {
+        product: product._id,
+        quantity: totalQuantity,
+        productName: product.name,
+        name: product.name, // For compatibility with cart screen
+        unitPrice: Number(product.salesPrice) || 0,
+        cartonPrice: Number(product.salesPriceOfCarton) || 0,
+        subtotal: subtotal,
+        variantId: null,
+        variantName: "",
+        noOfCartons: Number(noOfCartons),
+        noOfPieces: Number(noOfPieces),
+        image: product.image,
+        remainingStock: Number(product.remainingStock) || 0,
+        salesPrice: Number(product.salesPrice) || 0,
+        salesPriceOfCarton: Number(product.salesPriceOfCarton) || 0,
+        salesPriceofCarton: Number(product.salesPriceOfCarton) || 0, // For compatibility with cart screen
+        rule: Number(product.rule) || 1,
+        itemCode: product.itemCode || "",
+        productType: product.productType,
+        company: product.company,
+        category: product.category,
+        brand: product.brand,
+        _id: product._id,
+      }
+    }
+  }
+
+  const updateCart = () => {
+    if (!product) return
+
+    const totalQuantity = calculateTotalQuantity()
+
+    // If both pieces and cartons are 0, remove from cart
+    if (totalQuantity === 0) {
+      if (isInCart) {
+        removeFromCart(getCartItemId())
+        setIsInCart(false)
+      }
+      return
+    }
+
+    const cartItem = createCartItem()
+
+    // Use direct update to ensure all fields are properly saved
+    if (isInCart) {
+      // If already in cart, use updateCartItem if available
+      if (typeof updateCartItem === "function") {
+        updateCartItem(cartItem)
+      } else {
+        // Fallback to remove and add
+        removeFromCart(getCartItemId())
+        addToCart(cartItem)
+      }
+    } else {
+      addToCart(cartItem)
+      setIsInCart(true)
+    }
+  }
+
+  const handleIncrementPieces = () => {
+    if (isMaxReached()) return
+    setNoOfPieces((prev) => Number(prev) + 1)
+  }
+
+  const handleDecrementPieces = () => {
+    if (Number(noOfPieces) > 0) {
+      setNoOfPieces((prev) => Number(prev) - 1)
+    }
+  }
+
+  const handleIncrementCartons = () => {
+    const rule = getRule()
+    if (calculateTotalQuantity() + rule > getCurrentStock()) return
+    setNoOfCartons((prev) => Number(prev) + 1)
+  }
+
+  const handleDecrementCartons = () => {
+    if (Number(noOfCartons) > 0) {
+      setNoOfCartons((prev) => Number(prev) - 1)
     }
   }
 
@@ -134,29 +283,28 @@ const ProductDetail = () => {
     if (!product) return true
 
     if (product.productType === "Variant Type Product" && selectedVariant) {
-      return selectedVariant.remainingStock === 0
+      return Number(selectedVariant.remainingStock) === 0
     } else {
-      return product.remainingStock === 0
+      return Number(product.remainingStock) === 0
     }
   }
 
   const isMaxReached = () => {
     if (!product) return true
 
-    if (product.productType === "Variant Type Product" && selectedVariant) {
-      return getCartQuantity() >= selectedVariant.remainingStock
-    } else {
-      return getCartQuantity() >= product.remainingStock
-    }
+    const currentStock = getCurrentStock()
+    const totalQuantity = calculateTotalQuantity()
+
+    return totalQuantity >= currentStock
   }
 
   const getCurrentPrice = () => {
     if (!product) return 0
 
     if (product.productType === "Variant Type Product" && selectedVariant) {
-      return selectedVariant.salesPrice
+      return Number(selectedVariant.salesPrice) || 0
     } else {
-      return product.salesPrice
+      return Number(product.salesPrice) || 0
     }
   }
 
@@ -164,9 +312,9 @@ const ProductDetail = () => {
     if (!product) return 0
 
     if (product.productType === "Variant Type Product" && selectedVariant) {
-      return selectedVariant.remainingStock
+      return Number(selectedVariant.remainingStock) || 0
     } else {
-      return product.remainingStock
+      return Number(product.remainingStock) || 0
     }
   }
 
@@ -231,8 +379,6 @@ const ProductDetail = () => {
                   ]}
                   onPress={() => {
                     setSelectedVariant(item)
-                    console.log("this is the varaint selected ===>", item);
-                    
                   }}
                 >
                   <Txt
@@ -313,27 +459,80 @@ const ProductDetail = () => {
           )}
         </View>
 
-        {/* Cart Controls */}
-        <View style={styles.cartContainer}>
-          <TouchableOpacity
-            onPress={handleRemoveFromCart}
-            disabled={getCartQuantity() === 0 || isOutOfStock()}
-            style={styles.cartButton}
-          >
-            <Ionicons name="minus-circle-outline" size={28} color="black" />
-          </TouchableOpacity>
-          <Txt style={styles.quantityText}>{getCartQuantity()}</Txt>
-          <TouchableOpacity
-            onPress={handleAddToCart}
-            disabled={isMaxReached() || isOutOfStock()}
-            style={styles.cartButton}
-          >
-            <Ionicons
-              name="plus-circle-outline"
-              size={28}
-              color={isMaxReached() || isOutOfStock() ? "gray" : "black"}
-            />
-          </TouchableOpacity>
+        {/* Cart Controls - Pieces */}
+        <View style={styles.cartSection}>
+          <Txt weight={TxtWeight.Semi} size={16} style={styles.cartSectionTitle}>
+            Add Pieces
+          </Txt>
+          <View style={styles.cartContainer}>
+            <TouchableOpacity
+              onPress={handleDecrementPieces}
+              disabled={Number(noOfPieces) <= 0}
+              style={styles.cartButton}
+            >
+              <Ionicons name="minus-circle-outline" size={28} color={Number(noOfPieces) <= 0 ? "gray" : "black"} />
+            </TouchableOpacity>
+            <Txt style={styles.quantityText}>{noOfPieces}</Txt>
+            <TouchableOpacity
+              onPress={handleIncrementPieces}
+              disabled={isMaxReached() || isOutOfStock()}
+              style={styles.cartButton}
+            >
+              <Ionicons
+                name="plus-circle-outline"
+                size={28}
+                color={isMaxReached() || isOutOfStock() ? "gray" : "black"}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Cart Controls - Cartons */}
+        <View style={styles.cartSection}>
+          <Txt weight={TxtWeight.Semi} size={16} style={styles.cartSectionTitle}>
+            Add Cartons ({getRule()} pcs/carton)
+          </Txt>
+          <View style={styles.cartContainer}>
+            <TouchableOpacity
+              onPress={handleDecrementCartons}
+              disabled={Number(noOfCartons) <= 0}
+              style={styles.cartButton}
+            >
+              <Ionicons name="minus-circle-outline" size={28} color={Number(noOfCartons) <= 0 ? "gray" : "black"} />
+            </TouchableOpacity>
+            <Txt style={styles.quantityText}>{noOfCartons}</Txt>
+            <TouchableOpacity
+              onPress={handleIncrementCartons}
+              disabled={calculateTotalQuantity() + getRule() > getCurrentStock() || isOutOfStock()}
+              style={styles.cartButton}
+            >
+              <Ionicons
+                name="plus-circle-outline"
+                size={28}
+                color={calculateTotalQuantity() + getRule() > getCurrentStock() || isOutOfStock() ? "gray" : "black"}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Summary Section */}
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryRow}>
+            <Txt weight={TxtWeight.Medium}>Total Quantity:</Txt>
+            <Txt weight={TxtWeight.Bold}>{calculateTotalQuantity()} pcs</Txt>
+          </View>
+          <View style={styles.summaryRow}>
+            <Txt weight={TxtWeight.Medium}>Subtotal:</Txt>
+            <Txt weight={TxtWeight.Bold}>Rs. {calculateSubtotal()}</Txt>
+          </View>
+          {isInCart && (
+            <View style={styles.cartStatusContainer}>
+              <Ionicons name="check-circle" size={18} color="#4CAF50" />
+              <Txt weight={TxtWeight.Medium} style={styles.cartStatusText}>
+                Added to cart
+              </Txt>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -457,10 +656,20 @@ const styles = StyleSheet.create({
     color: "#000",
     fontWeight: "500",
   },
+  cartSection: {
+    width: "90%",
+    marginTop: 20,
+  },
+  cartSectionTitle: {
+    marginBottom: 8,
+  },
   cartContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 30,
+    justifyContent: "center",
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
+    padding: 8,
   },
   cartButton: {
     padding: 8,
@@ -469,10 +678,35 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginHorizontal: 20,
     fontWeight: "bold",
+    minWidth: 30,
+    textAlign: "center",
+  },
+  summaryContainer: {
+    width: "90%",
+    marginTop: 20,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
+    padding: 16,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+  },
+  cartStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  cartStatusText: {
+    color: "#4CAF50",
+    marginLeft: 5,
   },
 })
-
-
 
 
 

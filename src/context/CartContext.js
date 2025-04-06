@@ -75,9 +75,27 @@ export const CartProvider = ({children}) => {
     });
   };
 
+
+  const updateCartItem = (product) => {
+    setCartItems((prevItems) => {
+      const existingItemIndex = prevItems.findIndex((item) => item._id === product._id)
+
+      if (existingItemIndex !== -1) {
+        // Item exists, update it completely
+        const updatedItems = [...prevItems]
+        updatedItems[existingItemIndex] = {
+          ...product,
+        }
+        return updatedItems
+      } else {
+        // Item doesn't exist, add it
+        return [...prevItems, product]
+      }
+    })
+  }
   return (
     <CartContext.Provider
-      value={{cartItems, addToCart, removeFromCart, clearCart}}>
+      value={{cartItems, addToCart, removeFromCart, clearCart , updateCartItem}}>
       {children}
     </CartContext.Provider>
   );
