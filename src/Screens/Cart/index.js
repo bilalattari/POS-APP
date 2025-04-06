@@ -102,6 +102,8 @@ const CartScreen = () => {
     setLoading(false);
   };
 
+  console.log("this is the cart items ===>", cartItems);
+  
   // Renders each product card in the cart
   const renderCartItem = ({ item }) => {
     const cartItem = cartItems.find((p) => p._id === item._id);

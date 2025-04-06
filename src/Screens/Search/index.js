@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -7,21 +7,23 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
-} from 'react-native';
-import axios from 'axios';
-import Txt from '../../components/Txt';
-import {COLORS, TxtWeight} from '../../Constants';
-import Header from '../../components/Header';
-import Ionicons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useCart} from '../../context/CartContext';
-import {debounce} from 'lodash';
+} from "react-native";
+import axios from "axios";
+import Txt from "../../components/Txt";
+import { COLORS, TxtWeight } from "../../Constants";
+import Header from "../../components/Header";
+import Ionicons from "react-native-vector-icons/MaterialCommunityIcons";
+import { useCart } from "../../context/CartContext";
+import { debounce } from "lodash";
+import { useNavigation } from "@react-navigation/native";
 
 const Search = () => {
-  const {addToCart, removeFromCart, cartItems} = useCart();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { addToCart, removeFromCart, cartItems } = useCart();
+  const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
 
   useEffect(() => {
     fetchDefaultProducts(); // Fetch 10-20 default products on mount
@@ -39,68 +41,68 @@ const Search = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product?limit=20&page=1`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product?limit=20&page=1`
       );
 
       if (!response.data.error) {
         setProducts(response.data.data.docs || []);
         setWishlist(
           response.data.data.docs
-            .map(product => (product.isLiked ? product._id : null))
-            .filter(Boolean),
+            .map((product) => (product.isLiked ? product._id : null))
+            .filter(Boolean)
         );
       }
     } catch (error) {
-      console.error('Error fetching default products:', error);
+      console.error("Error fetching default products:", error);
     }
     setLoading(false);
   };
 
-  const fetchProducts = async query => {
+  const fetchProducts = async (query) => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product?name=${query}`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product?name=${query}`
       );
 
       if (!response.data.error) {
         setProducts(response.data.data.docs || []);
         setWishlist(
           response.data.data.docs
-            .map(product => (product.isLiked ? product._id : null))
-            .filter(Boolean),
+            .map((product) => (product.isLiked ? product._id : null))
+            .filter(Boolean)
         );
       }
     } catch (error) {
-      console.error('Error fetching search products:', error);
+      console.error("Error fetching search products:", error);
     }
     setLoading(false);
   };
 
   const fetchProductsDebounced = debounce(fetchProducts, 500);
 
-  const toggleWishlist = async productId => {
+  const toggleWishlist = async (productId) => {
     try {
       const response = await axios.post(
-        'https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/likeUnlikeProducts',
-        {productId},
+        "https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/likeUnlikeProducts",
+        { productId }
       );
 
       if (!response.data.error) {
-        setWishlist(prev =>
+        setWishlist((prev) =>
           prev.includes(productId)
-            ? prev.filter(id => id !== productId)
-            : [...prev, productId],
+            ? prev.filter((id) => id !== productId)
+            : [...prev, productId]
         );
       }
     } catch (error) {
-      console.error('Error toggling wishlist:', error);
+      console.error("Error toggling wishlist:", error);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Header isBack={true} headerTxt={'Search'} />
+      <Header isBack={true} headerTxt={"Search"} />
 
       {/* 🔹 Search Input */}
       <View style={styles.searchContainer}>
@@ -110,19 +112,19 @@ const Search = () => {
           placeholder="Search for products..."
           placeholderTextColor={COLORS.theme}
           value={searchQuery}
-          onChangeText={text => setSearchQuery(text)}
+          onChangeText={(text) => setSearchQuery(text)}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableOpacity onPress={() => setSearchQuery("")}>
             <Ionicons name="close-circle" size={22} color={COLORS.gray} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* 🔹 Product List */}
-      <View style={{paddingHorizontal: 16}}>
+      <View style={{ paddingHorizontal: 16 }}>
         <Txt weight={TxtWeight.Semi} mt={20} style={styles.heading}>
-          {searchQuery.length > 1 ? 'Search Results' : 'Popular Products'}
+          {searchQuery.length > 1 ? "Search Results" : "Popular Products"}
         </Txt>
 
         {loading ? (
@@ -133,20 +135,28 @@ const Search = () => {
           <FlatList
             data={products}
             numColumns={2}
-            keyExtractor={item => item._id}
+            keyExtractor={(item) => item._id}
             columnWrapperStyle={styles.productRow}
-            renderItem={({item}) => {
-              const cartItem = cartItems.find(p => p._id === item._id);
+            renderItem={({ item }) => {
+              const cartItem = cartItems.find((p) => p._id === item._id);
 
               return (
-                <View style={styles.productCard}>
+                <TouchableOpacity
+                  style={styles.productCard}
+                  onPress={() => {
+                    navigation.navigate("ProductDetail", {
+                      productId: item._id,
+                    });
+                  }}
+                >
                   {/* Like/Unlike Icon */}
                   <TouchableOpacity
                     onPress={() => toggleWishlist(item._id)}
-                    style={styles.wishlistIcon}>
+                    style={styles.wishlistIcon}
+                  >
                     <Ionicons
                       name={
-                        wishlist.includes(item._id) ? 'heart' : 'heart-outline'
+                        wishlist.includes(item._id) ? "heart" : "heart-outline"
                       }
                       size={24}
                       color="red"
@@ -155,7 +165,7 @@ const Search = () => {
 
                   <Image
                     source={{
-                      uri: item.image || 'https://via.placeholder.com/100',
+                      uri: item.image || "https://via.placeholder.com/100",
                     }}
                     style={styles.productImage}
                   />
@@ -182,7 +192,7 @@ const Search = () => {
                       />
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             }}
           />
@@ -197,12 +207,12 @@ export default Search;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
     paddingHorizontal: 12,
     marginHorizontal: 16,
@@ -219,13 +229,13 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 20,
     fontSize: 16,
     color: COLORS.gray,
   },
   productRow: {
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     marginBottom: 10,
     gap: 10,
   },
@@ -234,12 +244,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgGrey,
     borderRadius: 8,
     padding: 12,
-    alignItems: 'center',
-    position: 'relative',
+    alignItems: "center",
+    position: "relative",
     marginHorizontal: 5,
   },
   wishlistIcon: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     zIndex: 10,
@@ -257,7 +267,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   quantityContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 20,
   },
 });
