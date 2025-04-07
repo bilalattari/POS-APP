@@ -34,7 +34,7 @@ const ProfileScreen = () => {
       const userData = await AsyncStorage.getItem('userData');
       if (userData) {
         const parsedUser = JSON.parse(userData);
-        setUserId(parsedUser._id);
+        setUserId(parsedUser?._id);
       }
     } catch (error) {
       console.error('Error fetching userId:', error);
@@ -72,6 +72,7 @@ export default ProfileScreen;
 const OrdersTab = ({userId}) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+console.log(orders , "==> this is orders");
 
   useEffect(() => {
     if (userId) fetchOrders();
@@ -101,28 +102,28 @@ const OrdersTab = ({userId}) => {
       ) : orders.length > 0 ? (
         <FlatList
           data={orders}
-          keyExtractor={item => item._id}
+          keyExtractor={item => item?._id}
           renderItem={({item}) => (
             <View style={styles.orderCard}>
-              <Txt weight={TxtWeight.Semi}>Invoice : {item?.invoiceNumber || item._id}</Txt>
-              <Txt>Status: {item.orderStatus}</Txt>
+              <Txt weight={TxtWeight.Semi}>Invoice : {item?.invoiceNumber || item?._id}</Txt>
+              <Txt>Status: {item?.orderStatus}</Txt>
 
               {/* 🔹 Ordered Items */}
               <FlatList
                 data={item.products}
-                keyExtractor={product => product.product._id}
+                keyExtractor={product => product?.product?._id}
                 renderItem={({item: product}) => (
                   <View style={styles.productCard}>
                     <Image
-                      source={{uri: product.product.image}}
+                      source={{uri: product?.product?.image}}
                       style={styles.productImage}
                     />
                     <View style={styles.productDetails}>
                       <Txt weight={TxtWeight.Medium}>
-                        {product.product.name}
+                        {product?.product?.name}
                       </Txt>
-                      <Txt>Qty: {product.quantity}</Txt>
-                      <Txt>Price: Rs. {product.unitPrice}</Txt>
+                      <Txt>Qty: {product?.quantity}</Txt>
+                      <Txt>Price: Rs. {product?.unitPrice}</Txt>
                     </View>
                   </View>
                 )}

@@ -14,8 +14,8 @@ import {UserContext} from '../../context/UserContext';
 
 const LoginScreen = () => {
   const {loginUser} = useContext(UserContext);
-  const [phoneNumber, setPhoneNumber] = useState('+923132933803');
-  const [password, setPassword] = useState('123456');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
 
