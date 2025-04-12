@@ -69,10 +69,80 @@ const ProfileScreen = () => {
 export default ProfileScreen;
 
 // 🔹 **Orders Tab**
+// const OrdersTab = ({userId}) => {
+//   const [orders, setOrders] = useState([]);
+//   const [loading, setLoading] = useState(true);
+// console.log(orders , "==> this is orders");
+
+//   useEffect(() => {
+//     if (userId) fetchOrders();
+//   }, [userId]);
+
+//   const fetchOrders = async () => {
+//     try {
+//       const response = await axios.get(
+//         `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=orderHistory`,
+//       );
+//       if (!response.data.error) {
+//         setOrders(response.data.data.orders);
+//       }
+//     } catch (error) {
+//       console.error('Error fetching orders:', error);
+//     }
+//     setLoading(false);
+//   };
+
+//   return (
+//     <View style={styles.tabContainer}>
+//       <Txt weight={TxtWeight.Semi} style={styles.heading}>
+//         Order History
+//       </Txt>
+//       {loading ? (
+//         <ActivityIndicator size="large" color={COLORS.theme} />
+//       ) : orders.length > 0 ? (
+//         <FlatList
+//           data={orders}
+//           keyExtractor={item => item?._id}
+//           renderItem={({item}) => (
+//             <View style={styles.orderCard}>
+//               <Txt weight={TxtWeight.Semi}>Invoice : {item?.invoiceNumber || item?._id}</Txt>
+//               <Txt>Status: {item?.orderStatus}</Txt>
+
+//               {/* 🔹 Ordered Items */}
+//               <FlatList
+//                 data={item.products}
+//                 keyExtractor={product => product?.product?._id}
+//                 renderItem={({item: product}) => (
+//                   <View style={styles.productCard}>
+//                     <Image
+//                       source={{uri: product?.product?.image}}
+//                       style={styles.productImage}
+//                     />
+//                     <View style={styles.productDetails}>
+//                       <Txt weight={TxtWeight.Medium}>
+//                         {product?.product?.name}
+//                       </Txt>
+//                       <Txt>Qty: {product?.quantity}</Txt>
+//                       <Txt>Price: Rs. {product?.unitPrice}</Txt>
+//                     </View>
+//                   </View>
+//                 )}
+//               />
+//             </View>
+//           )}
+//         />
+//       ) : (
+//         <Txt>No Orders Found</Txt>
+//       )}
+//     </View>
+//   );
+// };
+
+
 const OrdersTab = ({userId}) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-console.log(orders , "==> this is orders");
+  const [expandedInvoice, setExpandedInvoice] = useState(null);
 
   useEffect(() => {
     if (userId) fetchOrders();
@@ -88,8 +158,13 @@ console.log(orders , "==> this is orders");
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const toggleExpand = invoiceId => {
+    setExpandedInvoice(prev => (prev === invoiceId ? null : invoiceId));
   };
 
   return (
@@ -103,32 +178,41 @@ console.log(orders , "==> this is orders");
         <FlatList
           data={orders}
           keyExtractor={item => item?._id}
+          contentContainerStyle={{paddingBottom: 20}}
           renderItem={({item}) => (
-            <View style={styles.orderCard}>
-              <Txt weight={TxtWeight.Semi}>Invoice : {item?.invoiceNumber || item?._id}</Txt>
+            <TouchableOpacity
+              style={styles.orderCard}
+              onPress={() => toggleExpand(item._id)}>
+              <Txt weight={TxtWeight.Semi}>
+                Invoice: {item?.invoiceNumber || item?._id}
+              </Txt>
               <Txt>Status: {item?.orderStatus}</Txt>
+              <Txt>Amount: Rs. {item?.totalAmount || 'N/A'}</Txt>
 
-              {/* 🔹 Ordered Items */}
-              <FlatList
-                data={item.products}
-                keyExtractor={product => product?.product?._id}
-                renderItem={({item: product}) => (
-                  <View style={styles.productCard}>
-                    <Image
-                      source={{uri: product?.product?.image}}
-                      style={styles.productImage}
-                    />
-                    <View style={styles.productDetails}>
-                      <Txt weight={TxtWeight.Medium}>
-                        {product?.product?.name}
-                      </Txt>
-                      <Txt>Qty: {product?.quantity}</Txt>
-                      <Txt>Price: Rs. {product?.unitPrice}</Txt>
+              {/* Products shown only if expanded */}
+              {expandedInvoice === item._id && (
+                <FlatList
+                  data={item.products}
+                  keyExtractor={product => product?.product?._id}
+                  scrollEnabled={false}
+                  renderItem={({item: product}) => (
+                    <View style={styles.productCard}>
+                      <Image
+                        source={{uri: product?.product?.image}}
+                        style={styles.productImage}
+                      />
+                      <View style={styles.productDetails}>
+                        <Txt weight={TxtWeight.Medium}>
+                          {product?.product?.name}
+                        </Txt>
+                        <Txt>Qty: {product?.quantity}</Txt>
+                        <Txt>Price: Rs. {product?.unitPrice}</Txt>
+                      </View>
                     </View>
-                  </View>
-                )}
-              />
-            </View>
+                  )}
+                />
+              )}
+            </TouchableOpacity>
           )}
         />
       ) : (

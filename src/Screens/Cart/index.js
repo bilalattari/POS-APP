@@ -284,7 +284,7 @@ const CartScreen = () => {
 
           {/* Cartons quantity control */}
           <View style={styles.quantityRow}>
-            <Txt style={styles.quantityLabel}>Cartons:</Txt>
+            <Txt style={styles.quantityLabel}>crt :</Txt>
             <View style={styles.quantityContainer}>
               <TouchableOpacity onPress={() => handleDecrementCartons(item)}>
                 <Ionicons
@@ -314,11 +314,18 @@ const CartScreen = () => {
   const renderCartView = () => (
     <View style={styles.contentContainer}>
       {cartItems.length > 0 ? (
+        <>
+
         <FlatList
           data={cartItems}
           keyExtractor={(item) => item._id}
           renderItem={renderCartItem}
         />
+
+        <Txt weight={TxtWeight.Bold} style={styles.subtotalText}>
+          Total Amount: Rs. {calculateTotal()}
+          </Txt>
+        </>
       ) : (
         <Txt weight={TxtWeight.Regular} style={styles.noDataText}>
           No items in cart.

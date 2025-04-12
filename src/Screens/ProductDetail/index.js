@@ -492,7 +492,7 @@ const ProductDetail = () => {
         {/* Cart Controls - Cartons */}
         <View style={styles.cartSection}>
           <Txt weight={TxtWeight.Semi} size={16} style={styles.cartSectionTitle}>
-            Add Cartons ({getRule()} pcs/carton)
+            Add crt ({getRule()} pcs/carton)
           </Txt>
           <View style={styles.cartContainer}>
             <TouchableOpacity
