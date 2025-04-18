@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useRef, useState } from "react"
 import { StyleSheet, View, FlatList, Image, TouchableOpacity, ScrollView } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
@@ -11,9 +9,13 @@ import Header from "../../components/Header"
 import Ionicons from "react-native-vector-icons/MaterialCommunityIcons"
 import { useCart } from "../../context/CartContext"
 
+
+const ITEM_HEIGHT = 100;
+
+
 const CompanyDetail = () => {
   const route = useRoute()
-  const { companyId } = route.params
+  const { companyId } = route.params || {}
   const scrollViewRef = useRef(null)
   const brandRefs = useRef({})
   const brandListRef = useRef(null)
@@ -32,6 +34,11 @@ const CompanyDetail = () => {
   const [selectedCompany, setSelectedCompany] = useState(companyId)
 
   const [sectionTops, setSectionTops] = useState({})
+  const flatListRef = useRef(null)
+
+  const scrollToItem = (index) => {
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+  };
 
   const navigation = useNavigation()
   useEffect(() => {
@@ -342,6 +349,11 @@ const CompanyDetail = () => {
             keyExtractor={(item) => item._id}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.companyList}
+            onScrollToIndexFailed={(info) => {
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+              }, 500);
+            }}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[styles.brandCard, selectedCompany === item._id && styles.selectedBrandCard]}
@@ -374,6 +386,11 @@ const CompanyDetail = () => {
                 </Txt>
               </TouchableOpacity>
             )}
+            onScrollToIndexFailed={(info) => {
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+              }, 500);
+            }}
           />
         </View>
 
@@ -401,6 +418,11 @@ const CompanyDetail = () => {
                   keyExtractor={(item) => item._id}
                   columnWrapperStyle={styles.productRow}
                   renderItem={renderProductCard}
+                  onScrollToIndexFailed={(info) => {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                    }, 500);
+                  }}
                 />
               </View>
             )
