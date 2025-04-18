@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -6,22 +6,23 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import Txt from '../../components/Txt';
-import {COLORS, TxtWeight} from '../../Constants';
-import Header from '../../components/Header';
-import Ionicons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {TabView, SceneMap, TabBar} from 'react-native-tab-view';
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import Txt from "../../components/Txt";
+import { COLORS, TxtWeight } from "../../Constants";
+import Header from "../../components/Header";
+import Ionicons from "react-native-vector-icons/MaterialCommunityIcons";
+import { TabView, SceneMap, TabBar } from "react-native-tab-view";
+import { useCart } from "../../context/CartContext";
 
 const ProfileScreen = () => {
   const [userId, setUserId] = useState(null);
   const [index, setIndex] = useState(0);
   const [routes] = useState([
-    {key: 'orders', title: 'Orders'},
-    {key: 'credit', title: 'Credit'},
-    {key: 'payments', title: 'Payments'},
+    { key: "orders", title: "Orders" },
+    { key: "credit", title: "Credit" },
+    { key: "payments", title: "Payments" },
     // {key: 'userOrders', title: 'User Orders'},
   ]);
 
@@ -31,13 +32,13 @@ const ProfileScreen = () => {
 
   const getUserId = async () => {
     try {
-      const userData = await AsyncStorage.getItem('userData');
+      const userData = await AsyncStorage.getItem("userData");
       if (userData) {
         const parsedUser = JSON.parse(userData);
         setUserId(parsedUser?._id);
       }
     } catch (error) {
-      console.error('Error fetching userId:', error);
+      console.error("Error fetching userId:", error);
     }
   };
 
@@ -45,16 +46,16 @@ const ProfileScreen = () => {
     <View style={styles.container}>
       <Header isBack={true} headerTxt="Profile" showLogout={true} />
       <TabView
-        navigationState={{index, routes}}
+        navigationState={{ index, routes }}
         renderScene={SceneMap({
           orders: () => <OrdersTab userId={userId} />,
           credit: () => <CreditTab userId={userId} />,
-          payments: () => <PaymentsTab userId={userId} />
-        //   userOrders: () => <UserOrdersTab userId={userId} />,
+          payments: () => <PaymentsTab userId={userId} />,
+          //   userOrders: () => <UserOrdersTab userId={userId} />,
         })}
         onIndexChange={setIndex}
-        initialLayout={{width: '100%'}}
-        renderTabBar={props => (
+        initialLayout={{ width: "100%" }}
+        renderTabBar={(props) => (
           <TabBar
             {...props}
             indicatorStyle={styles.tabIndicator}
@@ -138,11 +139,11 @@ export default ProfileScreen;
 //   );
 // };
 
-
-const OrdersTab = ({userId}) => {
+const OrdersTab = ({ userId }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedInvoice, setExpandedInvoice] = useState(null);
+  const { addToCart, removeFromCart, cartItems, updateCartItem } = useCart();
 
   useEffect(() => {
     if (userId) fetchOrders();
@@ -151,20 +152,33 @@ const OrdersTab = ({userId}) => {
   const fetchOrders = async () => {
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=orderHistory`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=orderHistory`
       );
       if (!response.data.error) {
         setOrders(response.data.data.orders);
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error("Error fetching orders:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleExpand = invoiceId => {
-    setExpandedInvoice(prev => (prev === invoiceId ? null : invoiceId));
+  const handleReorder = (products) => {
+    products.forEach((item) => {
+      const productToAdd = {
+        _id: item.product._id,
+        ...item,
+      };
+
+      updateCartItem(productToAdd); // replaces/adds full object in cart
+    });
+
+    alert("Products added to cart!");
+  };
+
+  const toggleExpand = (invoiceId) => {
+    setExpandedInvoice((prev) => (prev === invoiceId ? null : invoiceId));
   };
 
   return (
@@ -177,28 +191,46 @@ const OrdersTab = ({userId}) => {
       ) : orders.length > 0 ? (
         <FlatList
           data={orders}
-          keyExtractor={item => item?._id}
-          contentContainerStyle={{paddingBottom: 20}}
-          renderItem={({item}) => (
+          keyExtractor={(item) => item?._id}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.orderCard}
-              onPress={() => toggleExpand(item._id)}>
+              onPress={() => toggleExpand(item._id)}
+            >
               <Txt weight={TxtWeight.Semi}>
                 Invoice: {item?.invoiceNumber || item?._id}
               </Txt>
               <Txt>Status: {item?.orderStatus}</Txt>
-              <Txt>Amount: Rs. {item?.totalAmount || 'N/A'}</Txt>
+              <Txt>Amount: Rs. {item?.totalAmount || "N/A"}</Txt>
 
-              {/* Products shown only if expanded */}
+              {/* 🔄 Reorder Button */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 8,
+                }}
+              >
+                <Txt></Txt>
+                <TouchableOpacity
+                  onPress={() => handleReorder(item.products)}
+                  style={styles.reorderBtn}
+                >
+                  <Txt style={{ color: "#fff" }}>Reorder</Txt>
+                </TouchableOpacity>
+              </View>
+
               {expandedInvoice === item._id && (
                 <FlatList
                   data={item.products}
-                  keyExtractor={product => product?.product?._id}
+                  keyExtractor={(product) => product?.product?._id}
                   scrollEnabled={false}
-                  renderItem={({item: product}) => (
+                  renderItem={({ item: product }) => (
                     <View style={styles.productCard}>
                       <Image
-                        source={{uri: product?.product?.image}}
+                        source={{ uri: product?.product?.image }}
                         style={styles.productImage}
                       />
                       <View style={styles.productDetails}>
@@ -223,7 +255,7 @@ const OrdersTab = ({userId}) => {
 };
 
 // 🔹 **Credit Tab**
-const CreditTab = ({userId}) => {
+const CreditTab = ({ userId }) => {
   const [credit, setCredit] = useState(0);
 
   useEffect(() => {
@@ -233,11 +265,11 @@ const CreditTab = ({userId}) => {
   const fetchCredit = async () => {
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=userCredit`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=userCredit`
       );
       if (!response.data.error) setCredit(response.data.data.totalCredit);
     } catch (error) {
-      console.error('Error fetching credit:', error);
+      console.error("Error fetching credit:", error);
     }
   };
 
@@ -252,7 +284,7 @@ const CreditTab = ({userId}) => {
 };
 
 // 🔹 **Payments Tab**
-const PaymentsTab = ({userId}) => {
+const PaymentsTab = ({ userId }) => {
   const [paymentSummary, setPaymentSummary] = useState({
     totalPaid: 0,
     totalUnpaid: 0,
@@ -265,12 +297,12 @@ const PaymentsTab = ({userId}) => {
   const fetchPayments = async () => {
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=paymentSummary`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=paymentSummary`
       );
       if (!response.data.error)
         setPaymentSummary(response.data.data.paymentSummary);
     } catch (error) {
-      console.error('Error fetching payments:', error);
+      console.error("Error fetching payments:", error);
     }
   };
 
@@ -286,7 +318,7 @@ const PaymentsTab = ({userId}) => {
 };
 
 // 🔹 **User Orders Tab**
-const UserOrdersTab = ({userId}) => {
+const UserOrdersTab = ({ userId }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -297,11 +329,11 @@ const UserOrdersTab = ({userId}) => {
   const fetchUserOrders = async () => {
     try {
       const response = await axios.get(
-        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=userOrders`,
+        `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/user/user-info?userId=${userId}&type=userOrders`
       );
       if (!response.data.error) setOrders(response.data.data.orders);
     } catch (error) {
-      console.error('Error fetching user orders:', error);
+      console.error("Error fetching user orders:", error);
     }
     setLoading(false);
   };
@@ -316,8 +348,8 @@ const UserOrdersTab = ({userId}) => {
       ) : orders.length > 0 ? (
         <FlatList
           data={orders}
-          keyExtractor={item => item._id}
-          renderItem={({item}) => (
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
             <View style={styles.card}>
               <Txt>Order ID: {item._id}</Txt>
               <Txt>Status: {item.orderStatus}</Txt>
@@ -352,19 +384,23 @@ const UserOrdersTab = ({userId}) => {
 // };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#fff'},
-  tabContainer: {flex: 1, padding: 16},
-  heading: {fontSize: 18, marginBottom: 10},
+  container: { flex: 1, backgroundColor: "#fff" },
+  tabContainer: { flex: 1, padding: 16 },
+  heading: { fontSize: 18, marginBottom: 10 },
   card: {
     padding: 10,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     marginBottom: 10,
     borderRadius: 5,
   },
-  header: {flexDirection: 'row', justifyContent: 'space-between', padding: 16},
-  headerText: {fontSize: 18},
-  tabBar: {backgroundColor: COLORS.theme},
-  tabIndicator: {backgroundColor: '#fff'},
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  headerText: { fontSize: 18 },
+  tabBar: { backgroundColor: COLORS.theme },
+  tabIndicator: { backgroundColor: "#fff" },
   orderCard: {
     padding: 12,
     backgroundColor: COLORS.bgGrey,
@@ -372,12 +408,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   productCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 8,
     marginTop: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   productImage: {
     width: 50,
@@ -386,5 +422,13 @@ const styles = StyleSheet.create({
   },
   productDetails: {
     marginLeft: 10,
+  },
+  reorderBtn: {
+    marginTop: 10,
+    backgroundColor: COLORS.theme,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    alignSelf: "flex-start",
   },
 });

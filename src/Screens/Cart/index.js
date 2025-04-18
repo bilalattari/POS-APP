@@ -75,8 +75,10 @@ const CartScreen = () => {
         orderStatus: "Pending",
         orderTax: 0,
         shipping: 0,
+        totalAmount :cartItems.reduce((acc, product) => acc + (product.subtotal || 0), 0),
         termsConditions: "No returns after 7 days.",
         isOnline: true,
+        salesPerson: "67f5a28e310ad54d5b2d9c65",
         notes: `Pickup from 'Default location'`,
         products: cartItems.map((product) => ({
           product: product.product || product._id,
@@ -176,6 +178,7 @@ const CartScreen = () => {
     updateCartItem(updatedItem);
   };
 
+
   // Handle incrementing cartons
   const handleIncrementCartons = (item) => {
     const updatedItem = { ...item };
@@ -239,10 +242,10 @@ const CartScreen = () => {
 
     return (
       <View style={styles.cartItem}>
-        <Image source={{ uri: item.image }} style={styles.productImage} />
+        <Image source={{ uri: item.image || item.product.image }} style={styles.productImage} />
         <View style={styles.productDetails}>
           <Txt style={styles.productName}>
-            {item.name || item.productName}
+            {item.name || item.productName || item.product.name}
             {item.productType === "Variant Type Product" &&
               item.variantName &&
               ` (${item.variantName})`}
@@ -343,6 +346,9 @@ const CartScreen = () => {
       )}
     </View>
   );
+
+  console.log(cartItems , "====> this is the cart items");
+  
 
   // Checkout View with order summary and payment selection
   const renderCheckoutView = () => (
