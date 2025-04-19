@@ -48,6 +48,7 @@ const CartScreen = () => {
     }
   };
 
+
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
       const pieceTotal = (item.noOfPieces || 0) * (item.salesPrice || 0);
@@ -94,7 +95,9 @@ const CartScreen = () => {
           unitPrice: product.salesPrice,
           cartonPrice: product.salesPriceOfCarton || product.salesPriceofCarton,
           subtotal: product.subtotal || 0,
+          rule: product.rule,
           noOfPieces: Number(product.noOfPieces || 0),
+          noOfCartons: Number(product.noOfCartons || 0),
           noOfCartons: Number(product.noOfCartons || 0),
         })),
       };
@@ -106,7 +109,10 @@ const CartScreen = () => {
         orderData
       );
 
-      if (!response.data.error) {
+      console.log(response , "response in order data");
+      
+
+      if (!response?.data?.error) {
         Toast.show({
           type: "success",
           text1: "Order Placed Successfully",

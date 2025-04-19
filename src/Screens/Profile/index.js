@@ -15,10 +15,13 @@ import Header from "../../components/Header";
 import Ionicons from "react-native-vector-icons/MaterialCommunityIcons";
 import { TabView, SceneMap, TabBar } from "react-native-tab-view";
 import { useCart } from "../../context/CartContext";
+import Toast from "react-native-toast-message";
+import { useNavigation } from "@react-navigation/native";
 
 const ProfileScreen = () => {
   const [userId, setUserId] = useState(null);
   const [index, setIndex] = useState(0);
+  const navigation = useNavigation()
   const [routes] = useState([
     { key: "orders", title: "Orders" },
     { key: "credit", title: "Credit" },
@@ -164,18 +167,69 @@ const OrdersTab = ({ userId }) => {
     }
   };
 
-  const handleReorder = (products) => {
-    products.forEach((item) => {
-      const productToAdd = {
-        _id: item.product._id,
-        ...item,
-      };
+  
 
-      updateCartItem(productToAdd); // replaces/adds full object in cart
-    });
+  const handleReorder = async (products) => {
+    console.log("Products to reorder:", products);
+    // Use Promise.all to wait for all fetches
+    const transformedProducts = await Promise.all(
+      products.map(async (item) => {
+        try {
+          const res = await axios.get(
+            `https://pos-api-dot-ancient-episode-256312.de.r.appspot.com/api/v1/product/${item.product._id}`
+          );
+          const productData = res.data.data;
+  
+          const matchedVariant = productData.variants.find(
+            (v) => v.variantValue === item.variantValue
+          );
+  
+          const rule =
+            productData.productType === "Variant Type Product"
+              ? matchedVariant?.rule || 12
+              : productData.rule || 12;
+  
+          const transformedItem = {
+            product: item.product._id,
+            quantity: item.quantity,
+            productName: item.product.name,
+            name: item.product.name,
+            unitPrice: item.unitPrice || productData.salesPrice,
+            cartonPrice: item.cartonPrice || productData.salesPriceofCarton,
+            subtotal: item.subtotal,
+            variantId: item.variantId,
+            variantName: item.variantName,
+            noOfCartons: item.noOfCartons,
+            noOfPieces: item.noOfPieces,
+            image: item.product.image,
+            remainingStock: 3, // You can update this with real stock later
+            salesPrice: item.unitPrice || productData.salesPrice,
+            salesPriceOfCarton: item.cartonPrice || productData.salesPriceofCarton,
+            salesPriceofCarton: item.cartonPrice || productData.salesPriceofCarton,
+            rule: rule,
+            productType: productData.productType || "Variant Type Product",
+            _id: `${item.product._id}`,
+          };
+  
+          updateCartItem(transformedItem);
+          return transformedItem;
+        } catch (err) {
+          console.error("Error fetching product:", err);
+          return null;
+        }
+      })
+    );
+  
+    Toast.show({
+      type : "info",
+      text1 : 'Products Added To Cart',
+      text2: "Current Invoice Products Added To Cart Successfully",
+    })
 
-    alert("Products added to cart!");
+    navigation.navigate("Cart");
+    console.log("Reordered items:", transformedProducts.filter(Boolean));
   };
+  
 
   const toggleExpand = (invoiceId) => {
     setExpandedInvoice((prev) => (prev === invoiceId ? null : invoiceId));

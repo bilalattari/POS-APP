@@ -224,6 +224,8 @@ const Search = () => {
           <FlatList
             data={processedProducts}
             numColumns={2}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            ListFooterComponent={<View style={{ height: 60 }} />} 
             keyExtractor={(item) => item._id}
             columnWrapperStyle={styles.productRow}
             renderItem={renderProductCard}
