@@ -1,21 +1,22 @@
-import React, {useContext} from 'react';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {NavigationContainer} from '@react-navigation/native';
-import {ActivityIndicator, View, StyleSheet} from 'react-native';
-import Home from '../Screens/Home';
-import Login from '../Screens/Login';
-import CompanyDetail from '../Screens/CompanyProducts';
-import LikedProducts from '../Screens/LikedProducts';
-import CartScreen from '../Screens/Cart';
-import ProfileScreen from '../Screens/Profile';
-import {UserContext} from '../context/UserContext';
-import Search from '../Screens/Search';
-import ProductDetail from '../Screens/ProductDetail';
+import React, { useContext } from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { NavigationContainer } from "@react-navigation/native";
+import { ActivityIndicator, View, StyleSheet } from "react-native";
+import Home from "../Screens/Home";
+import Login from "../Screens/Login";
+import CompanyDetail from "../Screens/CompanyProducts";
+import LikedProducts from "../Screens/LikedProducts";
+import CartScreen from "../Screens/Cart";
+import ProfileScreen from "../Screens/Profile";
+import { UserContext } from "../context/UserContext";
+import Search from "../Screens/Search";
+import ProductDetail from "../Screens/ProductDetail";
+import Splash from "../Screens/Splash";
 
 const Stack = createNativeStackNavigator();
 
 function Navigator() {
-  const {user, isLoading} = useContext(UserContext);
+  const { user, isLoading } = useContext(UserContext);
 
   if (isLoading) {
     return (
@@ -27,7 +28,8 @@ function Navigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Splash" component={Splash} />
         {user ? (
           <>
             <Stack.Screen name="Home" component={Home} />
@@ -49,8 +51,8 @@ function Navigator() {
 const styles = StyleSheet.create({
   loaderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 
